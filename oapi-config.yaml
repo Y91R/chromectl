@@ -1,0 +1,10 @@
+# ADR: docs/adr/0001-dto-kak-vnutrenniy-kontrakt.md — strict-server, граница gen/api ↔ dto
+package: api
+output: gen/api/generated.go
+generate:
+  echo-server: true
+  strict-server: true
+  models: true
+  embedded-spec: true
+output-options:
+  skip-prune: true

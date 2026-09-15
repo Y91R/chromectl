@@ -1,0 +1,20 @@
+# Моки генерируются по интерфейсам домена: ports (адаптеры) и contracts.go
+# каждой операции. Руками моки не пишутся и в gen/ не редактируются.
+all: true
+# InterfaceDirRelative, а не PackagePath: в mockery v3 переменной PackagePath нет.
+# Префикс internal/ отбрасывается намеренно: путь gen/mocks/internal/... Go
+# считает внутренним пакетом каталога gen/mocks, и импортировать моки из тестов
+# сервиса было бы нельзя.
+dir: gen/mocks/{{ trimPrefix "internal/" .InterfaceDirRelative }}
+filename: "{{.InterfaceName}}.go"
+structname: "{{.InterfaceName}}"
+pkgname: mocks
+template: testify
+packages:
+  github.com/your-org/chrome_skill/internal/service/ports:
+    config:
+      all: true
+  github.com/your-org/chrome_skill/internal/service/usecase:
+    config:
+      all: true
+      recursive: true

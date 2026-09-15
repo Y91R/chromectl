@@ -1,0 +1,22 @@
+# Только зависимости для локальной разработки: миграции накатываются с хоста
+# командой `make migrate-up`.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chrome_skill
+      POSTGRES_USER: chrome_skill
+      POSTGRES_PASSWORD: chrome_skill
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chrome_skill"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:

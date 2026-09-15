@@ -1,0 +1,21 @@
+# Контекст сборки: в образ не должно попадать ничего, что не нужно бинарям и SPA.
+# Особенно .env — иначе секреты оседают в слое builder-стадии.
+.env
+.env.*
+.git
+.gitignore
+.idea
+.vscode
+.DS_Store
+.claude
+
+bin/
+coverage.out
+coverage.html
+
+front/node_modules/
+front/public/
+front/storybook-static/
+
+docs/
+*.md

@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chrome_skill
+      POSTGRES_USER: chrome_skill
+      POSTGRES_PASSWORD: chrome_skill
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chrome_skill"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Миграции накатывает тот же образ, что и сервис: отдельный migrate CLI и
+  # монтирование каталога с .sql не нужны — миграции вшиты в бинарь.
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://chrome_skill:chrome_skill@postgres:5432/chrome_skill?sslmode=disable
+    command: ["/migrator", "up"]
+
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://chrome_skill:chrome_skill@postgres:5432/chrome_skill?sslmode=disable
+      PORT: 8080
+      DEBUG_PORT: 8081
+    env_file:
+      # Файла может не быть: значения по умолчанию заданы выше, а .env — локальное
+      # дополнение. Без required:false compose падает на свежем клоне.
+      - path: ./.env
+        required: false
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/readyz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
