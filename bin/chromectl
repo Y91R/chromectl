@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+bin="$root/build/chromectl"
+
+if [[ ! -x "$bin" ]] || [[ -n "$(find "$root/cmd" "$root/internal" "$root/go.mod" "$root/go.sum" -newer "$bin" -print -quit)" ]]; then
+  if ! command -v go >/dev/null 2>&1; then
+    echo "chromectl: для первого запуска нужен Go 1.26+ (https://go.dev/dl) — бинарь плагина собирается из исходников" >&2
+    exit 1
+  fi
+  version="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$root/.claude-plugin/plugin.json" | head -n 1)"
+  mkdir -p "$root/build"
+  tmp="$bin.tmp.$$"
+  (cd "$root" && go build -ldflags "-X main.version=${version:-dev}" -o "$tmp" ./cmd/chromectl) >&2
+  mv -f "$tmp" "$bin"
+fi
+
+exec "$bin" "$@"

@@ -1,5 +1,5 @@
 # Go
-bin/
+build/
 *.exe
 coverage.out
 coverage.html
@@ -17,9 +17,7 @@ Thumbs.db
 # Env
 .env
 
-# Node
-node_modules/
-
-# Сборка фронта (раздаётся бэкендом с диска, в репозиторий не коммитится)
-front/public/
-front/storybook-static/
+# Планы этапов — локальные, не коммитятся; шаблон и реестр остаются
+docs/plans/*
+!docs/plans/0000-template.md
+!docs/plans/README.md

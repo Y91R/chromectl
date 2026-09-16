@@ -1,6 +1,6 @@
 # 0002. DESIGN.md как контракт дизайна (формат google-labs design.md)
 
-- **Статус:** принято
+- **Статус:** заменён ADR-0009
 - **Дата:** 2026-06-18
 - **Связано:** `DESIGN.md`, `front/scripts/gen-theme.mjs`, `front/src/style.css`,
   `Makefile` (`generate-design`, `design-lint`)

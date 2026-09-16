@@ -11,33 +11,22 @@ report() {
     fail=1
 }
 
-# Окружение читается ровно в одном месте: иначе конфигурация расползается
-# по коду и её нельзя ни проверить, ни задокументировать.
-if found=$(grep -rnE 'os\.(Getenv|LookupEnv)' --include='*.go' internal cmd 2>/dev/null \
-    | grep -v '^internal/config/' | grep -v '_test.go'); then
-    report 'чтение окружения вне internal/config — добавьте поле в config.Config' "$found"
-fi
-
-# context.TODO означает «здесь не подумали»: в рабочем коде такого быть не должно.
+# context.TODO означает «здесь не подумали»: каждый CDP-вызов обязан получать
+# настоящий контекст с таймаутом, иначе команда может повиснуть на мёртвом порту.
 if found=$(grep -rn 'context.TODO()' --include='*.go' internal cmd 2>/dev/null | grep -v '_test.go'); then
     report 'context.TODO() — передайте настоящий контекст' "$found"
 fi
 
-# SQL живёт только в репозиториях: запрос из транспорта или домена ломает слои
-# молча, компилятор его не заметит.
-# Ищем и обычные строки, и raw-литералы в бэктиках, в том числе многострочные:
-# запрос в бэктиках — самый частый способ протащить SQL мимо слоя.
-sql_start='(select|insert[[:space:]]+into|update[[:space:]]+.*[[:space:]]set|delete[[:space:]]+from)[[:space:]]'
-if found=$( { grep -rniE "[\"\`][[:space:]]*${sql_start}" --include='*.go' internal cmd 2>/dev/null; \
-              grep -rnE "^[[:space:]]*(SELECT|INSERT INTO|UPDATE .* SET|DELETE FROM)[[:space:]]" --include='*.go' internal cmd 2>/dev/null; } \
-    | grep -v '^internal/repository/' | grep -v '_test.go' | sort -u); then
-    report 'SQL вне internal/repository — вынесите запрос в репозиторий или internal/db/queries' "$found"
+# context.Background() в internal отрывает вызов от таймаута команды: он живёт,
+# даже когда команда уже решила завершиться. Место ему — main и тесты.
+if found=$(grep -rn 'context.Background()' --include='*.go' internal 2>/dev/null | grep -v '_test.go'); then
+    report 'context.Background() в internal — передайте контекст команды' "$found"
 fi
 
-# panic допустим только при сборке приложения, где падать нормально.
-if found=$(grep -rn 'panic(' --include='*.go' internal cmd 2>/dev/null \
-    | grep -v '^internal/app/' | grep -v '_test.go'); then
-    report 'panic вне internal/app — верните ошибку' "$found"
+# Паника в команде даёт стектрейс вместо сообщения и оставляет state
+# недописанным; ошибка возвращается наверх и превращается в код выхода.
+if found=$(grep -rn 'panic(' --include='*.go' internal 2>/dev/null | grep -v '_test.go'); then
+    report 'panic в internal — верните ошибку' "$found"
 fi
 
 if [ "$fail" -eq 0 ]; then

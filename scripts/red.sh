@@ -10,7 +10,7 @@ pkg="${2:-./...}"
 [ -n "$pkg" ] || pkg="./..."
 
 if [ -z "$run" ]; then
-    echo "укажите имя теста: scripts/red.sh TestCreateItem_409 [./internal/...]" >&2
+    echo "укажите имя теста: scripts/red.sh TestVersion_JSON [./cmd/...]" >&2
     exit 1
 fi
 

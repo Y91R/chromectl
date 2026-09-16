@@ -1,0 +1,11 @@
+{
+  "name": "chromectl",
+  "version": "0.1.0",
+  "description": "Control Chrome over CDP from Claude Code: snapshots with uids, clicks, forms, screenshots, emulation, console, network, performance traces, Lighthouse and heap snapshots via the chromectl CLI.",
+  "author": {
+    "name": "Y91R"
+  },
+  "homepage": "https://github.com/Y91R/chromectl",
+  "repository": "https://github.com/Y91R/chromectl",
+  "keywords": ["chrome", "cdp", "browser", "automation", "devtools", "lighthouse", "a11y", "lcp"]
+}

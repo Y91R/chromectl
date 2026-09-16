@@ -1,6 +1,6 @@
 # 0006. Миграции библиотекой golang-migrate, а не внешним CLI
 
-- **Статус:** принято
+- **Статус:** заменён ADR-0009
 - **Дата:** 2026-08-19
 - **Связано:** `cmd/migrator/`, `internal/db/embed.go`, `docker-compose.yml`
 

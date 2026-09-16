@@ -1,6 +1,6 @@
 # 0004. Дизайн-система со слоями примитивы/паттерны/layout
 
-- **Статус:** принято
+- **Статус:** заменён ADR-0009
 - **Дата:** 2026-06-19
 - **Связано:** `front/src/design-system/`, `DESIGN.md`, `CLAUDE.md`,
   `.claude/skills/add-component/SKILL.md`, заменяет [[0003-dizayn-kit-primitivov]],

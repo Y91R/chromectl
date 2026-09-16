@@ -1,0 +1,14 @@
+{
+  "name": "chromectl",
+  "description": "chromectl: a daemon-less CLI and Claude Code skills for controlling Chrome over CDP.",
+  "owner": {
+    "name": "Y91R"
+  },
+  "plugins": [
+    {
+      "name": "chromectl",
+      "source": "./",
+      "description": "Control Chrome over CDP from Claude Code via the chromectl CLI."
+    }
+  ]
+}

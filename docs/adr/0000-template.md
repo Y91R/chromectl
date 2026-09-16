@@ -2,8 +2,8 @@
 
 - **Статус:** предложено | принято | устарело | заменён ADR-NNNN
 - **Дата:** YYYY-MM-DD
-- **Связано:** спека (`docs/api/openapi.yaml`#operationId), миграция
-  (`internal/db/migrations/...`), план (`docs/plans/...`)
+- **Связано:** план (`docs/plans/...`), команда CLI (`chromectl <команда>`), результаты
+  спайка
 
 ## Контекст
 

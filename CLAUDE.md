@@ -6,374 +6,154 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Назначение проекта
 
-chrome_skill — <заполнить при инициализации: что делает сервис, кто его использует,
-какие внешние системы задействованы>.
+`chromectl` — Go-CLI и плагин Claude Code со скиллами для управления Chrome по CDP.
 
-## Spec-first (обязательный порядок работы)
+- **Пользователи:** AI-агенты (Claude Code) через скиллы проекта и разработчики из
+  терминала.
+- **Внешние системы:** Chrome/Chromium (debug-порт, CDP); Node.js — только для
+  `audit lighthouse`.
 
-**Никакой реализации без спецификации.** Всегда сначала контракты, потом код:
+ADR: `docs/adr/0009-cli-bez-demona.md`.
 
-1. **API**: сначала правка `docs/api/openapi.yaml` → `make generate` → только потом
-   реализация хендлеров. Эндпоинт, не описанный в спеке, не пишется.
-   Генерация покрывает обе стороны: Go strict-server (`gen/api`) и TS-типы фронта
-   (`front/src/gen/api.d.ts`) — фронт не пишет типы API руками.
-2. **БД**: сначала миграция (`make migrate-create`) → SQL-запросы в
-   `internal/db/queries/*.sql` (формат sqlc) → `make generate` → репозиторий в
-   `internal/repository/<агрегат>/` оборачивает типизированный `gen/db` и отдаёт
-   наружу доменные сущности. Схема едет только вперёд: правка уже закоммиченной
-   миграции блокируется хуком.
-3. **Домен**: бизнес-правило — не в хендлере. Инвариант живёт в
-   `internal/service/entity/`, сценарий — в `internal/service/usecase/<операция>/`
-   (`usecase.go` + `contracts.go`). Моки по этим интерфейсам генерирует mockery
-   в `gen/mocks/` — руками моки не пишутся. Процедура — скилл `/add-usecase`.
-4. **UI**: сначала дизайн-контракт — токены в `DESIGN.md` (формат google-labs
-   design.md) → `make generate` → `front/src/gen/theme.css`; затем story в `front/`
-   (Storybook, на моковых данных) на этих токенах, проверенная визуально скриншотом
-   через browser MCP (chrome-devtools) → только потом подключение компонента к API.
-5. **Тесты**: тест — такая же точка спецификации, как спека, и пишется **до**
-   реализации. Спека задаёт форму (поля, коды, границы), тест задаёт поведение:
-   что происходит при конфликте, какой лимит по умолчанию, что считается пустым
-   именем. Порядок — заглушка сигнатуры → красный тест (`make red RUN=...`) →
-   реализация → зелёный → диверсия. Ожидание берётся из контракта и пишется
-   литералом: тест, написанный после кода, берёт ожидания из самого кода и
-   фиксирует его баги как контракт. Эндпоинт готов, когда есть кейс на каждый код
-   ответа из спеки (образец — `internal/httptransport/handlers_test.go`), операция
-   домена — когда покрыт каждый её исход
-   (`internal/service/usecase/createitem/usecase_test.go`); наличие проверяет
-   `make test-guard`. Процедура — скилл `/tdd`,
+## Модель работы
+
+- **Резидентный процесс один — сам Chrome.** `chromectl browser start` запускает его
+  с `--remote-debugging-port` и отдельным `--user-data-dir`, `browser stop` закрывает.
+- **Одна команда — одно подключение.** Команда подключается к порту, делает одно
+  действие, отсоединяется от вкладки (не закрывая её) и завершается. Горутин и
+  подписок, переживающих команду, не бывает.
+- **Состояние — в файле**, не в памяти: `~/.cache/chromectl/<port>/state.json`
+  (каталог `0700`, файлы `0600`). Формат едет только вперёд: поле `version`, новое
+  поле добавляется опциональным, чтение старого state не ломается.
+- **Чего нет без демона:** истории сети до вызова (только `--capture` в рамках одной
+  команды), эмуляции между командами (применяется заново при каждом подключении),
+  раздельных `start`/`stop` трейса. Подробности — ADR-0009.
+
+## Текущее состояние
+
+Реестр этапов — `docs/plans/README.md`, выполнены все Э0–Э6. Команды: `browser`,
+`pages`, `navigate`, `screenshot`, `snapshot`, `click`, `hover`, `drag`, `fill`,
+`fill-form`, `type`, `press`, `upload`, `eval`, `wait-for`, `dialog`, `emulate`,
+`resize`, `console`, `network` (детали — через `--capture`), `perf`, `heap`,
+`audit lighthouse` (нужен Node.js). Плагин `chromectl` (`.claude-plugin/`), скиллы:
+`/chromectl:browser`, `/chromectl:browser-a11y`, `/chromectl:browser-lcp`,
+`/chromectl:browser-troubleshooting`; локально — `claude --plugin-dir .`. Пакеты без пометки уже есть в коде, с
+пометкой — появятся в указанном этапе (зонтичный план
+`docs/plans/dapper-tinkering-raccoon.md`).
+
+```
+cmd/chromectl/             cobra-команды: флаги, таймауты, вывод (output.go)
+internal/browser/          поиск Chrome, запуск detached, готовность по /json/version, stop
+internal/cdp/              тонкий CDP-клиент: websocket, ответы по id, подписки на события
+internal/state/            state.json: pid, вкладка, маршруты uid, политика диалога, эмуляция по вкладкам
+internal/snapshot/         AX-дерево по всем фреймам (включая cross-origin) → текст с uid
+internal/emulation/        разбор и применение эмуляции, пресеты сети
+internal/command/session/  подключение к вкладке, эмуляция, страж диалогов, ожидание после действия, uid → узел
+internal/command/pages/    браузер, вкладки, навигация, скриншот
+internal/command/input/    click, hover, drag, fill, type, press, upload
+internal/command/script/   snapshot, eval, wait-for, dialog
+internal/command/emulate/  emulate, resize
+internal/console/          сообщения консоли из событий CDP
+internal/netlog/           захваченные запросы: маскирование, лимиты тел, файл захвата
+internal/command/inspect/  console list/get, network list/get
+internal/perf/             метрики трейса: LCP, FCP, TTFB, CLS, длинные задачи, разборы
+internal/command/diagnose/ perf trace/insight, heap snapshot, audit lighthouse
+internal/e2e/              e2e с реальным Chrome и httptest-фикстурами (-tags e2e)
+skills/browser*/           скиллы плагина: browser, browser-a11y, browser-lcp, browser-troubleshooting
+bin/chromectl              обёртка плагина: собирает build/chromectl из исходников при первом вызове
+.claude-plugin/            манифесты плагина и маркетплейса
+```
+
+**Chrome не запускается в песочнице агента** (Seatbelt): `make test-e2e`, `make verify`
+и команды `chromectl`, которые трогают браузер, выполняются вне песочницы.
+
+## Порядок работы
+
+1. **План.** Крупная задача режется на этапы-срезы в `docs/plans/` (скилл `/new-plan`).
+   После каждого этапа есть что показать. Критерий готовности — наблюдаемый результат,
+   формально — зелёный `make verify`. Вопрос, на который исполнитель не может
+   ответить, — шлагбаум в реестре. Разошлась реализация — правится шапка плана.
+2. **Допущения о Chrome проверяются до кода.** Утверждение «CDP сделает X» — гипотеза,
+   пока не выполнено на реальном Chrome. Такие места проверяет спайк в начале этапа,
+   результат пишется в ADR.
+3. **Тест до реализации.** Заглушка сигнатуры → красный тест (`make red RUN=...`) →
+   реализация → зелёный → диверсия. Ожидание — литералом из плана этапа или
+   результатов спайка, не из кода. Процедура — `/tdd`,
    ADR: `docs/adr/0008-testy-kak-specifikaciya.md`.
-
-Если задача требует кода, для которого нет контракта/спеки/макета — сначала создаётся
-спецификация, согласуется, и лишь затем пишется реализация. Сгенерированный код
-(`gen/`, `front/src/gen/`) руками не редактируется — PreToolUse-хук это блокирует,
-а `make generate-check` (и CI) проверяет синхронность со спекой. Процедуры оформлены
-скиллами: `/add-endpoint`, `/add-migration`, `/add-usecase`, `/tdd`.
-
-## Планы — комплект вертикальных срезов
-
-Крупная задача не делается по одной большой простыне. `docs/plans/` — **комплект
-планов**: задача режется на этапы, один этап — один файл, а `docs/plans/README.md` —
-реестр (порядок, зависимости, критерий готовности каждого этапа).
-
-- **Резка — вертикальными срезами.** Этап проходит путь миграция → спека → генерация →
-  домен → транспорт → экран на живых данных, и после каждого есть что показать.
-  Горизонтальная резка («сначала все миграции, потом весь домен») не годится: до самого
-  конца готовность нулевая. Если внутри этапа разные зоны ответственности — дочерние
-  планы `etap-N a/b/c`, у каждого свой критерий готовности.
-- **Критерий готовности — наблюдаемый результат**, а не «код написан»: что можно
-  показать, когда этап закрыт. Формально готовность — зелёный `make verify`.
-- **Шлагбаумы.** Вопрос, на который исполнитель ответить не может, выносится в таблицу
-  шлагбаумов реестра с указанием блокируемого этапа; этап не начинается, пока ответа нет.
-- **План описывает сделанное, а не задуманное.** Разошлась реализация — правится шапка
-  плана («Отклонение от плана», «Правки по ходу»), а не молча.
-- Шаблон — `docs/plans/0000-template.md`, процедура — скилл `/new-plan`.
-  Все планы на русском.
-
-## ADR — почему именно так
-
-Спека отвечает на **«что»**, ADR (`docs/adr/`) — на **«почему именно так»**. ADR —
-долговременный результат связки *план → реализация*: план устаревает, код показывает
-«как», а ADR сохраняет контекст, рассмотренные альтернативы и причину выбора.
-
-- Нетривиальное решение (форма API, схема данных, граница слоёв, внешняя зависимость,
-  компромисс) фиксируется новым файлом `docs/adr/NNNN-zagolovok.md` по шаблону
-  `docs/adr/0000-template.md`. Механические правки ADR не требуют.
-- Места в коде, реализующие решение, помечаются комментарием-ссылкой на ADR:
-  `// ADR: docs/adr/NNNN-....md — короткое почему`. Маркер начинается с `ADR:` и
-  содержит путь — ищется grep'ом (`grep -rn "ADR:" internal/`), кликается из IDE.
-- Правила и формат — в `docs/adr/README.md`. Все ADR на русском.
-
-## Обратная совместимость и forward-only
-
-Прод едет только вперёд: откат — это деплой новой версии вперёд, а не возврат старой.
-Поэтому каждое изменение обязано быть обратно совместимым с уже работающим прод-кодом
-и уже существующими данными.
-
-- **Expand/contract (parallel change).** Сначала добавляем новое, не ломая старое
-  (expand): новое поле/колонка/ручка/версия живёт рядом со старым; переключаем
-  чтение и запись. Старое удаляем отдельным шагом позже (contract), когда от него
-  уже ничто не зависит.
-- **Breaking-изменения — только отдельным шагом.** Удаление или переименование поля,
-  колонки, ручки и любая несовместимая смена контракта не делаются в том же изменении,
-  что вводит замену. Для БД — отдельная миграция (`drop`/`rename`), накатываемая после
-  того, как код перестал использовать старое.
-- **Отложенные удаления фиксируются** в `docs/adr/DEPRECATIONS.md`: что удалить, когда
-  станет можно и зачем. Место в коде помечается
-  `// DEPRECATED: docs/adr/DEPRECATIONS.md — удалить после <условие>`. Условие должно
-  быть проверяемым (дата, версия клиента, «после backfill `NNNNNN`»), не «когда-нибудь».
+4. **ADR на нетривиальное решение** (`/new-adr`): `docs/adr/NNNN-zagolovok.md`, место в
+   коде помечается `// ADR: docs/adr/NNNN-....md — короткое почему`.
+5. **Отложенное удаление** — строка в `docs/adr/DEPRECATIONS.md` и маркер
+   `// DEPRECATED: docs/adr/DEPRECATIONS.md — удалить после <проверяемое условие>`.
 
 ## Команды
 
-`make help` печатает полный список. Основное:
+`make help` печатает полный список.
 
 ```bash
-make run            # запустить сервис: API :8080, служебный порт :8081 (/livez, /readyz)
-make build          # монолит: собрать фронт (front/public) + бинари → bin/server, bin/migrator
-make build-front    # собрать SPA в front/public (бэкенд раздаёт его с диска)
-make build-back     # только бинари бэкенда
-
-make verify         # единый гейт «готово»: generate-check + lint + guard + test-guard + test + design-guard
-make verify-full    # verify + test-migrations (нужны докер и сеть)
-make test           # go test ./... -count=1
+make build          # build/chromectl (версия из git describe)
+make test           # unit-тесты, без браузера
+make test-e2e       # e2e с реальным Chrome (CHROME_PATH или стандартный путь); до Э1 падает
 make red RUN=TestX  # шаг red: упасть, если тест зелёный, не запустился или упал не от ассерта
-make test-cover     # покрытие → coverage.html (coverpkg=./internal/...)
-make lint           # golangci-lint, включая границы слоёв (depguard)
+make lint           # golangci-lint, включая depguard
 make fix            # автоисправления линтера
-make guard          # правила, не выражаемые импортами (os.Getenv, SQL, panic, context.TODO)
-make test-guard     # код ответа из спеки без теста, операция домена без теста
-make design-guard   # запрет сырого hex в компонентах (UI только на токенах)
-
-make generate       # вся кодогенерация: gen/api + gen/db + gen/mocks + front/src/gen
-make generate-mocks # моки по ports и usecase/*/contracts.go (mockery)
-make generate-design # CSS-токены Tailwind v4 из DESIGN.md → front/src/gen/theme.css
-make design-lint    # валидация контракта дизайна DESIGN.md
-make generate-check # упасть, если генерат рассинхронизирован с контрактом
-make tools          # oapi-codegen/sqlc/mockery — go.mod tool-директивы; golangci-lint — пиннутый бинарь
-
-make docker-db      # только Postgres (docker-compose.dev.yml)
-make migrate-up     # накатить миграции (go run ./cmd/migrator up)
-make migrate-down   # откатить одну
-make migrate-create name=init_schema    # новая пара .up/.down
-make test-migrations # up → down → up на живой БД
-make docker-up      # весь стек (postgres + migrate + backend)
-
-cd front && npm run dev                      # фронт (Vite, порт 5173, proxy /api → :8080)
-cd front && npm run storybook -- --no-open   # Storybook (порт 6006)
+make guard          # context.TODO(), panic в internal
+make verify-unit    # lint + guard + test — быстрый цикл, готовность им не подтверждается
+make verify         # verify-unit + test-e2e — единственный признак «готово»
+make tools          # golangci-lint нужной версии
 ```
 
-Скриншоты story снимаются через browser MCP (chrome-devtools):
-`navigate_page` на `http://localhost:6006/iframe.html?id=<story-id>&viewMode=story`,
-затем `take_screenshot`.
+## Принципы Go-кода
 
-Конфигурация читается из `.env` (Makefile делает `-include .env` и `export`). Для
-локального запуска: скопировать `.env.example` → `.env`, поднять `make docker-db`,
-затем `make migrate-up && make run`.
+- **Ошибки** — `fmt.Errorf("<что делали>: %w", err)` наверх. Ожидаемые исходы —
+  sentinel-ошибки, разбираются через `errors.Is`/`errors.As`. В `cmd/chromectl` ошибка
+  превращается в сообщение в stderr и ненулевой код выхода; stdout при ошибке пуст.
+  `panic` в `internal` не используется (`make guard`).
+- **Контекст и таймауты.** `context.Context` — первым аргументом во всём, что ходит в
+  Chrome. Каждый CDP-вызов ограничен таймаутом: мёртвый порт не должен вешать команду.
+  `context.Background()` — только в `main` и тестах, `context.TODO()` — нигде.
+- **Конкурентность.** Горутина живёт не дольше команды, у неё есть владелец и способ
+  остановки. Фоновых процессов CLI не оставляет.
+- **Вкладку закрывает только `pages close`.** Любая другая команда отсоединяется
+  через `Target.detachFromTarget`; контексты `chromedp` с `WithTargetID` не
+  используются — их отмена закрывает вкладку (ADR-0009).
+- **Секреты.** Захваченные заголовки `Authorization`, `Cookie`, `Set-Cookie`,
+  `Proxy-Authorization` маскируются по умолчанию; тела и заголовки в лог не пишутся.
+- **Пакеты и имена.** Пакет — зона ответственности: `utils`, `common`, `helpers`,
+  `base` не заводятся. Экспортируется минимум.
+- **Время наружу — в UTC.**
 
-## Архитектура
+## Тесты
 
-**Contract-first.** Контракт `docs/api/openapi.yaml` — единственный источник правды;
-`make generate` (oapi-codegen, конфиг `oapi-config.yaml`) даёт strict-server интерфейс
-в `gen/api/generated.go`, а `openapi-typescript` — типы фронта. `gen/` руками не
-редактируется.
-
-**Раскладка.**
-
-```
-docs/api/openapi.yaml    контракт HTTP                       ← правится руками
-DESIGN.md                контракт дизайна                    ← правится руками
-internal/db/             migrations/, queries/               ← правится руками
-gen/                     весь генерат (api, db, mocks)       ← не редактируется
-cmd/
-  server/                HTTP + служебный порт в одном процессе
-  migrator/              накат, откат и версия схемы
-internal/
-  app/                   сборка графа зависимостей, LIFO-остановка
-  config/                схема конфигурации (envconfig)
-  observability/         логгер
-  server/httpserver/     echo: middleware, валидация по спеке, роутер, статика SPA
-  server/debugserver/    служебный порт: /livez, /readyz, pprof
-  httptransport/         реализация HTTP-контракта + schemas/ (мапперы и коды ответов)
-  repository/            адаптеры БД + txmanager
-  db/                    embed миграций для migrator
-  service/               ДОМЕН
-    entity/              сущности и инварианты
-    ports/               интерфейсы адаптеров
-    usecase/<операция>/  usecase.go + contracts.go
-    errors/              sentinel-ошибки и валидация
-front/                   Vue + Vite + Tailwind + Storybook
-```
-
-**Поток запроса.** `cmd/server` собирает граф через `internal/app` и поднимает два
-сервера. `httpserver` вешает middleware (Recover, RequestID, slog-логгер, CORS,
-`OapiRequestValidator` — каждый запрос к `/api` валидируется против встроенной спеки),
-раздаёт собранный SPA с диска (`HTML5: true`, SPA-fallback; не-`/api` пути валидатор
-пропускает) и регистрирует маршруты `/api/v1`. `httptransport.Handlers` реализует
-`api.StrictServerInterface`, вызывает операцию домена и возвращает типизированный
-ответ. `debugserver` на отдельном порту отвечает `/livez` всегда, `/readyz` — только
-при доступной БД.
-
-**Слои и зависимости.** Зависимость идёт только внутрь:
-`cmd → app → usecase → entity`, а адаптеры (`repository`, `httptransport`) зависят от
-домена, но не наоборот. `internal/service/**` не импортирует `gen/`, echo и pgx — это
-проверяет `depguard`, а не договорённость.
-
-**Домен (`internal/service`).** Сущность защищает свой инвариант сама: корректный
-объект создаётся только конструктором (`entity.NewItem`), поля приватные. Операция —
-пакет в `usecase/`: интерфейс `UseCase`, неэкспортируемая реализация и `contracts.go`
-с зависимостями ровно той ширины, что нужна операции. Ожидаемые исходы — доменные
-ошибки `service/errors`; транспорт переводит их в коды ответов.
-ADR: `docs/adr/0005-domennyy-sloy-vmesto-dto.md`.
-
-**Репозиторий (`internal/repository`).** Возвращает сущности, а не строки БД, и
-переводит ошибки драйвера в доменные (`pgx.ErrNoRows` → `ErrNotFound`, `23505` →
-`ErrConflict`). Границы транзакций задаёт use case через `Transaction`; репозиторий
-достаёт открытую транзакцию из контекста (`repository/txmanager`), поэтому один и тот
-же код работает и внутри транзакции, и вне её.
-
-**Сборка графа (`internal/app`).** DI вручную, узлы ленивые (`sync.OnceValues`), каждый
-регистрирует функцию остановки, а `Shutdown` вызывает их в обратном порядке создания.
-ADR: `docs/adr/0007-ruchnoy-di-i-lifo-ostanovka.md`.
-
-**Миграции.** `golang-migrate` подключён библиотекой, миграции вшиты в бинарь через
-`embed.FS`; внешний `migrate` CLI не нужен ни локально, ни в контейнере.
-ADR: `docs/adr/0006-migracii-bibliotekoy.md`.
-
-**Конфиг** — `internal/config` на envconfig: единственное место, где читается
-окружение (проверяет `make guard`). Переменная процесса всегда сильнее `.env`.
-
-## Принципы бэкенда (обязательные)
-
-Спека задаёт «что», эти принципы — «как» пишется код сервиса. Нарушение принципа —
-повод либо переделать, либо завести ADR с объяснением, почему здесь иначе.
-
-**Зависимости внутрь.** `internal/service/**` не знает про `gen/`, echo, pgx. Транспорт
-не ходит в БД мимо репозитория, репозиторий не знает про модели HTTP API. Проверяет
-`depguard`, а не ревью.
-
-**Интерфейс объявляет потребитель.** Зависимости операции — в её `contracts.go`, ровно
-той ширины, которая нужна. Конструктор адаптера возвращает конкретный тип
-(`*item.Repository`), интерфейс принимает потребитель. Общих «интерфейсов на всё» нет.
-
-**Одна операция — один пакет** в `internal/service/usecase/`.
-
-**Инвариант живёт в сущности.** Создать некорректный `Item` мимо `entity.NewItem`
-нельзя, поэтому проверка не дублируется в транспорте.
-
-**Транспорт только маппит.** Никакой бизнес-логики в хендлерах; соответствие
-«доменная ошибка → код ответа» — в `httptransport/schemas`. Неизвестная ошибка
-возвращается наверх как `error`: превращать её в 4xx значило бы сказать клиенту
-«ты виноват» при сбое базы.
-
-**SQL — только в `internal/db/queries/*.sql`** (sqlc) и в `internal/repository/`.
-SQL-строк в транспорте и домене не бывает — это проверяет `make guard`.
-
-**`context.Context` — первым аргументом** во всём, что ходит наружу.
-`context.Background()` — только в `main` и тестах, `context.TODO()` — нигде.
-Любой вызов во внешнюю систему ограничен таймаутом или дедлайном.
-
-**Ошибки.** Наверх — `fmt.Errorf("<что делали>: %w", err)`, без логирования на каждом
-уровне: одна ошибка логируется один раз, там, где обработана. Ожидаемые исходы —
-sentinel-ошибки `service/errors`, разбираются через `errors.Is`/`errors.As`. В тело
-ответа не попадают ни текст SQL, ни имена таблиц, ни `err.Error()` драйвера. `panic`
-вне `internal/app` не используется (проверяет `make guard`); фатальная ошибка старта
-возвращается из `run()` и завершает процесс ненулевым кодом.
-
-**Валидация.** Форма запроса (типы, обязательность, форматы, границы, enum) описывается
-в `openapi.yaml` и проверяется `OapiRequestValidator` до хендлера — в коде это не
-дублируется. Инварианты предметной области проверяет сущность.
-
-**Логи — `slog`, структурированные**: сообщение — константа, переменное уходит в поля.
-Секреты и персональные данные не логируются ни в каком виде. `request_id` в логах
-запроса ставит middleware — руками не прокидывается.
-
-**Конфиг — только env** через `internal/config`: `os.Getenv` вне этого пакета не
-вызывается (`make guard`). У параметра либо рабочий локальный дефолт, либо (для
-секретов) дефолта нет вовсе. Значения конфига не логируются целиком.
-
-**Конкурентность.** Горутина заводится только с явным владельцем и способом остановки
-(контекст или канал) — «выстрелил и забыл» не бывает. Фоновая работа либо переживает
-graceful shutdown, либо не запускается.
-
-**Время наружу — в UTC.**
-
-**Тесты — спецификация, а не отчёт.** Тест пишется до реализации и падает прежде,
-чем позеленеть: красный от ассерта (а не от компилятора — сначала заглушка сигнатуры)
-доказывает, что тест вообще что-то проверяет. Ожидание берётся из контракта — из
-`openapi.yaml`, инварианта сущности, формулировки требования — и пишется литералом;
-вычислять его тем же выражением, что в реализации, или ссылаться на её константы
-нельзя: такой тест не падает никогда. Прежде чем считать тест готовым, реализация
-намеренно ломается — должен упасть именно этот кейс. Домен и транспорт тестируются
-без БД и сети: моки по `ports` и `contracts.go` генерирует mockery в `gen/mocks/`.
-На каждый код ответа из спеки — кейс в table-driven тесте (образцы —
-`internal/httptransport/handlers_test.go`,
-`internal/service/usecase/createitem/usecase_test.go`). Без `time.Sleep`,
-с `t.Parallel()` там, где нет общего состояния. Тест на регрессию пишется до фикса и
-обязан воспроизводить симптом на текущем коде. Поведение без контракта, зафиксированное
-как есть, помечается `// CHARACTERIZATION:` и спецификацией не считается.
-ADR: `docs/adr/0008-testy-kak-specifikaciya.md`.
-
-**Пакеты и имена.** Пакет — зона ответственности, а не свалка: `utils`, `common`,
-`helpers`, `base` не заводятся. Экспортируется минимум необходимого.
-
-## Флоу дизайна и реализации UI (story-first)
-
-Фронт — `front/` (Vue 3 + Vite + Tailwind), Storybook встроен в него же: story лежит
-рядом с компонентом (`front/src/components/*.stories.ts`), макет и реализация — один
-и тот же код, шага «перенести из песочницы» нет. Любой UI-компонент или экран:
-
-1. **Сначала компонент + story на моковых данных** — без привязки к реальному API.
-   Запуск: `cd front && npm run storybook -- --no-open` (порт 6006). Образец —
-   `front/src/components/ExampleCard.vue` + `ExampleCard.stories.ts`.
-2. **Обязательная визуальная валидация через browser MCP (chrome-devtools)**:
-   открыть story напрямую — `navigate_page` на
-   `http://localhost:6006/iframe.html?id=<story-id>&viewMode=story`, при необходимости
-   задать размер окна `resize_page`, снять `take_screenshot` и проверить вёрстку по
-   изображению. Итерировать макет до готовности. story-id — из URL Storybook,
-   например `example-examplecard--default`.
-3. **Только после этого — подключение к API** через типизированный клиент
-   `front/src/api/client.ts` (openapi-fetch поверх сгенерированных типов
-   `front/src/gen/api.d.ts`). Запросы руками (голый fetch, самодельные типы) не пишем.
-
-Не реализуем UI напрямую, минуя story.
-
-**Дизайн-система (контракт `DESIGN.md`).** `DESIGN.md` — источник правды дизайн-системы
-в формате [google-labs design.md](https://github.com/google-labs-code/design.md):
-frontmatter с токенами (`colors`/`typography`/`rounded`/`spacing`/`components`) + проза
-с intent. Перед story правится `DESIGN.md`, затем `make design-lint` и `make generate`
-(под-таргет `generate-design`) экспортит токены в `front/src/gen/theme.css` (`@theme`
-Tailwind v4) официальным CLI `@google/design.md`; `front/src/style.css` импортирует этот
-файл. Сгенерированный `theme.css` руками не редактируется (защищён хуком и
-`generate-check`) — меняется `DESIGN.md`. Компоненты собираются на Tailwind-утилитах
-этих токенов (`bg-surface`, `text-primary`, `rounded-md`), хардкод hex не используется.
-Процедура — скилл `/update-design`.
-
-**Дизайн-система.** Дизайн всегда содержит дизайн-систему —
-`front/src/design-system/` (реэкспорт через корневой `index.ts`), разбитую на слои:
-`primitives/` (атомы — Button, Input, Card, Badge, Checkbox, Select, Spinner),
-`patterns/` (композиции примитивов — FormField) и `layout/` (структура — Stack,
-Container). Все собраны только на токенах, каждый со story-вариантами
-(`Design System/<слой>/<Name>`). Любой UI композится из системы, а не из голых утилит:
-бизнес-компоненты импортируют её (образец — `ExampleCard.vue` собран из
-`Card`+`Badge`+`Button`). Новый компонент заводится в нужный слой по скиллу
-`/add-component`; при смене токенов в `DESIGN.md` компоненты не правятся — меняется
-только контракт.
-
-## Безопасность
-
-- **Валидация входа.** Каждый запрос к `/api` проверяется против спеки middleware
-  `OapiRequestValidator` (`internal/server/httpserver`) — несоответствие телу или
-  параметрам отклоняется до хендлера. Правила задаются в `openapi.yaml`, не в коде.
-- **Секреты — только из env.** Конфиг читается из переменных окружения
-  (`internal/config`); `.env` в `.gitignore` и закрыт от чтения агентом
-  (`Read(.env*)` запрещён в `.claude/settings.json`). Секреты не коммитим и не логируем.
-- **CORS.** Разрешённые источники — `CORS_ORIGINS` (env) → `cfg.CORSOrigins`.
-  По умолчанию только локальный фронт; в проде сузить.
-- **Аутентификация.** Точка подключения — middleware в `internal/server/httpserver`
-  (по образцу `OapiRequestValidator`) до `RegisterHandlersWithBaseURL`; схемы доступа
-  описывать в `openapi.yaml` (`securitySchemes`) и проверять в middleware.
-- **Служебный порт наружу не выставляется.** `/livez`, `/readyz` и pprof живут на
-  `DEBUG_PORT` (по умолчанию 8081) — в compose он не публикуется.
+- Unit: чистые функции (формат снапшота по фикстуре AX-дерева, разбор флагов
+  эмуляции, метрики трейса) — golden-файлы и литералы в `testdata/`.
+- e2e (`-tags e2e`, `internal/e2e/`): headless Chrome на свободном порту, фикстуры
+  через `httptest`, каждая команда — отдельный процесс собранного бинаря. Проверяется
+  код выхода, stdout/stderr и отсутствие побочных эффектов (число вкладок в
+  `/json/list`, права файлов state).
+- Без `time.Sleep`: ожидание — по событию или опросом с дедлайном. `t.Parallel()` там,
+  где нет общего браузера.
+- Поведение без контракта, зафиксированное как есть, — `// CHARACTERIZATION:`.
 
 ## Гардрейлы
 
-Договорённости, которые проверяются автоматически, а не на ревью:
-
-- `depguard` (в `make lint`) — границы слоёв: домен не импортирует генерат, HTTP
-  и драйвер БД; транспорт не работает с БД напрямую; репозиторий не знает про модели API.
-- `make guard` (`scripts/guard.sh`) — `os.Getenv` вне `internal/config`, SQL вне
-  `internal/repository`, `context.TODO()`, `panic` вне `internal/app`.
-- `make generate-check` — генерат разошёлся с контрактом.
-- `make test-guard` (`scripts/test-guard.sh`) — код ответа из спеки без кейса в тестах
-  транспорта, операция домена без теста.
-- `make design-guard` — сырой hex в компонентах.
-- PreToolUse-хук `.claude/hooks/protect-gen.sh` — правка `gen/**` и уже закоммиченной
-  миграции (forward-only). Разбирает и команды Bash (`sed -i`, перенаправление, `mv`):
-  запрет, висящий только на Edit/Write, обходился одной командой.
-- `.claude/settings.json` — запрещены `git commit`, `git push`, `rm -rf`, чтение `.env*`.
+- `depguard` (`make lint`): `internal/cdp` не знает про `internal/command`,
+  `internal/output` и cobra; `internal/**` не импортирует `cmd`.
+- `make guard` (`scripts/guard.sh`): `context.TODO()`, `panic` в `internal`.
+- `make red` (`scripts/red.sh`): красный от ассерта, а не от компилятора.
+- `TestEveryCommandHasE2ECase` (`cmd/chromectl`, в `make test`): у каждой команды cobra
+  есть кейс с её полным путём аргументов в e2e или unit-тестах CLI.
+- `TestSkillTableMatchesCommandTree` (`cmd/chromectl`, в `make test`): таблица команд
+  скилла `skills/browser` совпадает с деревом cobra — новая команда требует строки в скилле.
+- `TestPluginManifests` (`cmd/chromectl`) и `TestPluginWrapper_*` (e2e): манифесты
+  плагина указывают на корень, скиллы на месте, обёртка собирает бинарь при первом вызове и переиспользует его.
+- `TestSoak_FiftyCommandsLeaveNoTabsSessionsOrProcesses` (e2e): 50 команд подряд не
+  меняют набор вкладок и не оставляют процессов CLI.
+- `make test-e2e` падает, если e2e нет или Chrome не найден, — пустой зелёный не бывает.
+- `.claude/settings.json`: запрещены `git commit`, `git push`, `rm -rf`, чтение `.env*`.
+- Подробно, с «зачем» каждого, — `docs/flou-ogranicheniy-i-specifikaciy.md`.
 
 ## Конвенции
 
-- Go-модуль: `github.com/your-org/chrome_skill`.
-- Миграции — только через `make migrate-create` (формат `NNNNNN_name.up/down.sql`),
-  применяются `cmd/migrator`; в Docker — тем же образом сервиса.
-- Все `.md` файлы пишутся на русском.
+- Go-модуль: `github.com/Y91R/chromectl`.
+- Все `.md` файлы пишутся на русском. Исключение — `README.md`: он на английском, русская
+  версия — `README.ru.md`; правятся вместе.

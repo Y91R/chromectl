@@ -9,53 +9,27 @@ linters:
     - nolintlint
     - unconvert
 
-  exclusions:
-    paths:
-      - gen
-
   settings:
     depguard:
       rules:
-        # Домен не знает ни про генерат, ни про транспорт, ни про драйверы —
-        # ради этого и затевалась вся раскладка по слоям.
-        domain:
-          # Тесты домена исключены: моки лежат в gen/, и запрет импорта генерата
-          # сделал бы невозможным их использование там, где они и нужны.
-          files: ["**/internal/service/**", "!**/internal/service/**/*_test.go"]
+        # Транспорт CDP переиспользуется всеми командами: знание о CLI или формате
+        # вывода внутри него привязало бы протокол к одной команде.
+        cdp:
+          files: ["**/internal/cdp/**"]
           deny:
-            - pkg: github.com/your-org/chrome_skill/gen
-              desc: домен не зависит от сгенерированного кода
-            - pkg: github.com/labstack/echo/v4
-              desc: домен не знает про HTTP
-            - pkg: github.com/jackc/pgx/v5
-              desc: домен не знает про драйвер БД
-            # Зависимость идёт только внутрь: адаптеры знают про домен, домен
-            # про адаптеры — нет. Иначе usecase начнёт брать конкретный
-            # репозиторий вместо интерфейса из своего contracts.go.
-            - pkg: github.com/your-org/chrome_skill/internal/repository
-              desc: домен не зависит от адаптера БД — объявите интерфейс в contracts.go
-            - pkg: github.com/your-org/chrome_skill/internal/httptransport
-              desc: домен не зависит от транспорта
-            - pkg: github.com/your-org/chrome_skill/internal/server
-              desc: домен не зависит от HTTP-серверов
-            - pkg: github.com/your-org/chrome_skill/internal/app
-              desc: домен не зависит от сборки графа
+            - pkg: github.com/Y91R/chromectl/internal/command
+              desc: транспорт не знает про команды
+            - pkg: github.com/Y91R/chromectl/internal/output
+              desc: транспорт не знает про формат вывода
+            - pkg: github.com/spf13/cobra
+              desc: транспорт не знает про CLI
 
-        # Транспорт ходит в БД только через репозиторий.
-        transport:
-          files: ["**/internal/httptransport/**"]
+        # Зависимость идёт внутрь: cmd собирает команды из internal, не наоборот.
+        internal:
+          files: ["**/internal/**"]
           deny:
-            - pkg: github.com/your-org/chrome_skill/gen/db
-              desc: транспорт не работает с БД напрямую
-            - pkg: github.com/jackc/pgx/v5
-              desc: транспорт не работает с БД напрямую
-
-        # Репозиторий не знает про модели внешнего API.
-        repository:
-          files: ["**/internal/repository/**"]
-          deny:
-            - pkg: github.com/your-org/chrome_skill/gen/api
-              desc: репозиторий не знает про модели HTTP API
+            - pkg: github.com/Y91R/chromectl/cmd
+              desc: internal не зависит от точки входа
 
 formatters:
   enable:
