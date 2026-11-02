@@ -2,7 +2,7 @@
 
 [English](README.md) · **Русский**
 
-CLI и плагин для Claude Code и Codex для управления Chrome по Chrome DevTools Protocol (CDP): снапшот
+CLI и плагин для Claude Code, Codex и Kimi Code для управления Chrome по Chrome DevTools Protocol (CDP): снапшот
 дерева доступности с uid, клики и формы, скриншоты, эмуляция устройств, консоль и сеть,
 трейс производительности, Lighthouse и снимок кучи.
 
@@ -16,7 +16,7 @@ CLI и плагин для Claude Code и Codex для управления Chro
 - Chrome или Chromium (нестандартный путь — `CHROME_PATH`)
 - Go 1.26+ — плагин собирает бинарь из исходников при первом вызове
 - Claude Code 2.1.265+ (его `bin/` попадает в `PATH`) либо Codex CLI с поддержкой
-  `codex plugin` / Codex desktop с локальными плагинами
+  `codex plugin` / Codex desktop с локальными плагинами либо Kimi Code с плагинами
 - Node.js — только для `chromectl audit lighthouse`
 
 ## Установка плагина Claude Code
@@ -39,10 +39,25 @@ codex plugin add chromectl@chromectl
 В Codex desktop каталог репозитория также доступен в разделе плагинов.
 Упаковка соответствует [формату плагинов Codex](https://developers.openai.com/plugins/build/plugins).
 
+## Установка плагина Kimi Code
+
+В Kimi Code выполните:
+
+```text
+/plugins install https://github.com/Y91R/chromectl
+/reload
+/skill:chromectl:browser
+```
+
+Для проверки текущего checkout — `/plugins install /абсолютный/путь/к/chromectl`.
+Kimi устанавливает отдельную копию; после правок исходников переустановите плагин.
+См. [формат плагинов Kimi Code](https://moonshotai.github.io/kimi-code/en/customization/plugins.html).
+
 ## Скиллы
 
-Оба агента используют одни скиллы. Ниже указаны имена вызова в Claude Code;
-в Codex выберите соответствующий скилл плагина chromectl через список `$`.
+Все три агента используют одни скиллы. Ниже указаны имена вызова в Claude Code;
+в Codex выберите соответствующий скилл плагина chromectl через список `$`;
+в Kimi Code — `/skill:chromectl:browser` (или имя другого скилла).
 
 | Скилл | Для чего |
 |---|---|
@@ -51,13 +66,14 @@ codex plugin add chromectl@chromectl
 | `/chromectl:browser-lcp` | отладка и оптимизация LCP: трейс, LCP-элемент, водопад сети |
 | `/chromectl:browser-troubleshooting` | диагностика, когда CLI не запускает Chrome, не подключается или зависает |
 
-**Песочница.** Chrome не запускается в песочнице агента на macOS (Seatbelt), а
+**Песочница.** Chrome не запускается под macOS Seatbelt, а
 первый вызов `chromectl` пишет собранный бинарь в каталог плагина. Скиллы описывают
 запрос запуска вне песочницы для каждого агента: `dangerouslyDisableSandbox` в
 Claude Code и `sandbox_permissions: "require_escalated"` в Codex. Запуск требует
 разрешения окружения. Правила песочницы Claude Code — `/sandbox`.
+Kimi Code использует Bash со штатными разрешениями среды.
 
-**Путь к CLI в Codex.** Скиллы находят `bin/chromectl` относительно своего места
+**Путь к CLI в Codex и Kimi Code.** Скиллы находят `bin/chromectl` относительно своего места
 установки и вызывают по абсолютному пути; добавлять его в глобальный `PATH` необязательно.
 
 ## Установка без плагина

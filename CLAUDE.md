@@ -1,14 +1,14 @@
 # CLAUDE.md
 
-Подробные инструкции для Claude Code и Codex при работе с репозиторием.
+Подробные инструкции для Claude Code, Codex и Kimi Code при работе с репозиторием.
 
 > Краткая карта для агента (навигация, definition of done, гардрейлы) — в [AGENTS.md](AGENTS.md).
 
 ## Назначение проекта
 
-`chromectl` — Go-CLI и плагин Claude Code и Codex со скиллами для управления Chrome по CDP.
+`chromectl` — Go-CLI и плагин Claude Code, Codex и Kimi Code со скиллами для управления Chrome по CDP.
 
-- **Пользователи:** AI-агенты (Claude Code, Codex) через скиллы проекта и разработчики из
+- **Пользователи:** AI-агенты (Claude Code, Codex, Kimi Code) через скиллы проекта и разработчики из
   терминала.
 - **Внешние системы:** Chrome/Chromium (debug-порт, CDP); Node.js — только для
   `audit lighthouse`.
@@ -35,12 +35,15 @@ ADR: `docs/adr/0009-cli-bez-demona.md`.
 `pages`, `navigate`, `screenshot`, `snapshot`, `click`, `hover`, `drag`, `fill`,
 `fill-form`, `type`, `press`, `upload`, `eval`, `wait-for`, `dialog`, `emulate`,
 `resize`, `console`, `network` (детали — через `--capture`), `perf`, `heap`,
-`audit lighthouse` (нужен Node.js). Плагин `chromectl` (`.claude-plugin/`, `.codex-plugin/`), скиллы:
+`audit lighthouse` (нужен Node.js). Плагин `chromectl`
+(`.claude-plugin/`, `.codex-plugin/`, `kimi.plugin.json`), скиллы:
 `/chromectl:browser`, `/chromectl:browser-a11y`, `/chromectl:browser-lcp`,
 `/chromectl:browser-troubleshooting`; имена выше — для Claude Code, в Codex скиллы
 выбираются через `$`. Локально — `claude --plugin-dir .` либо
 `codex plugin marketplace add <абсолютный путь репозитория>` и
-`codex plugin add chromectl@chromectl`, затем новая сессия. Пакеты без пометки уже есть в коде, с
+`codex plugin add chromectl@chromectl`, затем новая сессия. В Kimi Code —
+`/plugins install <абсолютный путь репозитория>`, `/reload`,
+`/skill:chromectl:browser`. Пакеты без пометки уже есть в коде, с
 пометкой — появятся в указанном этапе (зонтичный план
 `docs/plans/dapper-tinkering-raccoon.md`).
 
@@ -67,13 +70,15 @@ bin/chromectl              обёртка плагина: собирает build
 .claude-plugin/            манифесты плагина и маркетплейса
 .codex-plugin/             манифест Codex с общим каталогом skills/
 .agents/plugins/           каталог установки плагина Codex из корня репозитория
+kimi.plugin.json          манифест Kimi Code с общим каталогом skills/
 ```
 
 **Chrome не запускается в песочнице агента** (Seatbelt): `make test-e2e`, `make verify`
 и команды `chromectl`, которые трогают браузер, выполняются вне песочницы.
 В Codex — `exec_command` с `sandbox_permissions: "require_escalated"` и
 `justification`, в Claude Code — Bash с `dangerouslyDisableSandbox: true`.
-Codex вызывает обёртку по абсолютному пути, найденному относительно загруженного
+Kimi Code использует Bash со штатными разрешениями среды, без параметров других агентов.
+Codex и Kimi Code вызывают обёртку по абсолютному пути, найденному относительно загруженного
 `skills/browser/SKILL.md`; автоматическое добавление `bin/` в PATH не предполагается.
 
 ## Порядок работы
@@ -153,7 +158,8 @@ make tools          # golangci-lint нужной версии
   есть кейс с её полным путём аргументов в e2e или unit-тестах CLI.
 - `TestSkillTableMatchesCommandTree` (`cmd/chromectl`, в `make test`): таблица команд
   скилла `skills/browser` совпадает с деревом cobra — новая команда требует строки в скилле.
-- `TestPluginManifests` (`cmd/chromectl`) и `TestPluginWrapper_*` (e2e): манифесты
+- `TestPluginManifests`, `TestCodexPluginManifest`, `TestCodexMarketplace`,
+  `TestKimiPluginManifest` (`cmd/chromectl`) и `TestPluginWrapper_*` (e2e): манифесты
   плагина указывают на корень, скиллы на месте, обёртка собирает бинарь при первом вызове и переиспользует его.
 - `TestSoak_FiftyCommandsLeaveNoTabsSessionsOrProcesses` (e2e): 50 команд подряд не
   меняют набор вкладок и не оставляют процессов CLI.

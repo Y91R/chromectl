@@ -8,16 +8,16 @@ description: Диагностика, когда chromectl не запускае�
 Действуй по шагам: сначала сверь сообщение с таблицей, потом — проверки ниже. Устройство
 CLI — [ADR-0009](https://github.com/Y91R/chromectl/blob/main/docs/adr/0009-cli-bez-demona.md).
 Перед командами прочитай [основной скилл browser](../browser/SKILL.md): там поиск
-бинаря в Codex и правила запуска вне песочницы для обоих агентов.
+бинаря в Codex и Kimi Code и правила запуска для каждого агента.
 
 ## 1. Сообщение об ошибке
 
 | Сообщение | Причина | Что делать |
 |---|---|---|
-| `chromectl: command not found` в Codex | каталог `bin/` плагина не добавлен в PATH | вызвать `<корень плагина>/bin/chromectl` по абсолютному пути из расположения основного скилла |
+| `chromectl: command not found` в Codex или Kimi Code | каталог `bin/` плагина не добавлен в PATH | вызвать `<корень плагина>/bin/chromectl` по абсолютному пути из расположения основного скилла |
 | «chromectl: для первого запуска нужен Go 1.26+» | бинарь плагина собирается из исходников, а Go нет в PATH | установить Go 1.26+ (https://go.dev/dl) или `go install github.com/Y91R/chromectl/cmd/chromectl@latest` на другой машине с Go |
-| `operation not permitted` при первом вызове `chromectl` (в том числе `version`) | сборка бинаря пишет в каталог плагина, песочница это запрещает | повторить вне песочницы по правилам основного скилла: Claude Code — `dangerouslyDisableSandbox: true`, Codex — `sandbox_permissions: "require_escalated"` и `justification` |
-| `Operation not permitted`, `Failed to create a ProcessSingleton`, `debug-порт … не открылся` при запуске из агента | Chrome не запускается в песочнице агента (Seatbelt) | повторить команду вне песочницы по правилам основного скилла; в Claude Code настройки — `/sandbox` |
+| `operation not permitted` при первом вызове `chromectl` (в том числе `version`) | сборка бинаря пишет в каталог плагина, среда это запрещает | запросить разрешение по правилам основного скилла: Claude Code — `dangerouslyDisableSandbox: true`, Codex — `sandbox_permissions: "require_escalated"` и `justification`, Kimi Code — штатное разрешение Bash |
+| `Operation not permitted`, `Failed to create a ProcessSingleton`, `debug-порт … не открылся` при запуске из агента | среда блокирует запуск Chrome (например, macOS Seatbelt) | проверить запуск по правилам основного скилла; в Claude Code настройки — `/sandbox`; при недоступном разрешении сообщить об ограничении |
 | «браузер не запущен, выполните chromectl browser start» | нет state для этого `--port` или Chrome закрыли мимо CLI | `chromectl browser start`; проверь, что `--port` тот же |
 | «браузер уже запущен: порт …, pid …» | state этого порта жив | работать с ним или `chromectl browser stop` |
 | «порт … уже занят» | на порту другой процесс, свой Chrome туда не встанет | другой `--port`; кто занял — `lsof -iTCP:<порт> -sTCP:LISTEN` |

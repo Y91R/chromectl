@@ -6,7 +6,7 @@ description: Аудит и отладка доступности (a11y) стра
 # Доступность через chromectl
 
 Сначала прочитай [основной скилл browser](../browser/SKILL.md): там команды, поиск
-бинаря в Codex и правила запуска вне песочницы для обоих агентов.
+бинаря в Codex и Kimi Code и правила запуска для каждого агента.
 Сниппеты для `eval` — в [references/a11y-snippets.md](references/a11y-snippets.md).
 
 **Дерево доступности, а не DOM.** Спрятанный через `opacity: 0` элемент для скринридера
@@ -43,8 +43,8 @@ chromectl audit lighthouse --output-dir /tmp/lh
 2. `chromectl snapshot` — роли, имена, `heading ... level="N"`.
 3. **Уровни заголовков** идут подряд, без пропусков (`h1` → `h3` — ошибка).
 4. **Порядок чтения**: сравни порядок узлов в снапшоте со скриншотом
-   (`chromectl screenshot -o /tmp/page.png`, затем Read в Claude Code или `view_image`
-   в Codex). Float и absolute могут
+   (`chromectl screenshot -o /tmp/page.png`, затем Read в Claude Code, `view_image`
+   в Codex или ReadMediaFile в Kimi Code). Float и absolute могут
    переставить визуальный порядок относительно DOM.
 
 ### 3. Подписи, формы, альтернативный текст

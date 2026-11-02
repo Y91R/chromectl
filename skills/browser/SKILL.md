@@ -12,18 +12,22 @@ description: Управление Chrome через CLI chromectl — запус
 ## Перед началом
 
 - **Claude Code:** `chromectl` приходит из плагина и уже в PATH.
-- **Codex:** не рассчитывай на PATH. Возьми абсолютный путь загруженного
+- **Codex и Kimi Code:** не рассчитывай на PATH. Возьми абсолютный путь загруженного
   `skills/browser/SKILL.md`: два уровня вверх от его каталога — корень плагина,
   исполняемый файл — `<корень плагина>/bin/chromectl`. Во всех командах ниже
   подставляй этот абсолютный путь в кавычках вместо `chromectl`. Не ищи плагин
   относительно рабочего каталога проекта и не полагайся на `CLAUDE_PLUGIN_ROOT`.
 - Первый вызов обёртки собирает бинарь из исходников — нужен Go 1.26+ и запись в
   каталог плагина. В репозитории chromectl — `make build` и `./build/chromectl`.
-- **Chrome не запускается в песочнице агента** (macOS Seatbelt). Команды, которые
-  трогают браузер, и первую сборку выполняй вне песочницы: в Claude Code — Bash с
+- **Chrome не запускается под macOS Seatbelt.** В окружении с такой песочницей
+  команды, которые трогают браузер, и первую сборку выполняй вне неё:
+  в Claude Code — Bash с
   `dangerouslyDisableSandbox: true`, в Codex — `exec_command` с
-  `sandbox_permissions: "require_escalated"` и кратким `justification`. Если политика
-  окружения запрещает повышение прав, сообщи об ограничении. `version` и `--help`
+  `sandbox_permissions: "require_escalated"` и кратким `justification`.
+  В Kimi Code используй Bash со штатными разрешениями среды, без параметров
+  `dangerouslyDisableSandbox` и `sandbox_permissions`. Если среда блокирует запуск
+  Chrome или запись при сборке и не позволяет выдать разрешение, сообщи об
+  ограничении. `version` и `--help`
   после сборки можно выполнять в песочнице.
 - Порт по умолчанию 9222 (`--port`). Нужен отдельный браузер — другой `--port`: у
   каждого порта свой state и свой профиль.
@@ -38,7 +42,8 @@ description: Управление Chrome через CLI chromectl — запус
 4. Действия по uid: `click`, `fill`, `fill-form`, `press`… Добавь `--snapshot`, чтобы
    сразу получить обновлённое дерево.
 5. Проверка: `eval`, `wait-for`, `snapshot`; вёрстка — `screenshot -o x.png` и просмотр
-   файла инструментом изображений (Read в Claude Code, `view_image` в Codex).
+   файла инструментом изображений (Read в Claude Code, `view_image` в Codex,
+   ReadMediaFile в Kimi Code).
 6. `chromectl browser stop`, когда браузер больше не нужен.
 
 uid живёт, пока жив документ: после перезагрузки или перехода на другую страницу

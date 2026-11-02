@@ -6,7 +6,7 @@ description: Отладка и оптимизация Largest Contentful Paint (
 # LCP через chromectl
 
 Сначала прочитай [основной скилл browser](../browser/SKILL.md): там команды, поиск
-бинаря в Codex и правила запуска вне песочницы для обоих агентов. Сниппеты — в
+бинаря в Codex и Kimi Code и правила запуска для каждого агента. Сниппеты — в
 [references/lcp-snippets.md](references/lcp-snippets.md), стратегии —
 [references/optimization-strategies.md](references/optimization-strategies.md).
 
