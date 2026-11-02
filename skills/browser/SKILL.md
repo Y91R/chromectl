@@ -11,13 +11,20 @@ description: Управление Chrome через CLI chromectl — запус
 
 ## Перед началом
 
-- Бинарь: `chromectl` приходит из плагина и уже в PATH. Первый вызов собирает его из
-  исходников — нужен Go 1.26+ и запуск с `dangerouslyDisableSandbox: true` (песочница
-  не пускает запись в каталог плагина). В репозитории chromectl — `make build` и
-  `./build/chromectl`.
-- **Chrome не запускается в песочнице Bash** (Seatbelt): команды `chromectl`, которые
-  трогают браузер, выполняй с `dangerouslyDisableSandbox: true`. Без браузера
-  (`version`, `--help`) — в песочнице.
+- **Claude Code:** `chromectl` приходит из плагина и уже в PATH.
+- **Codex:** не рассчитывай на PATH. Возьми абсолютный путь загруженного
+  `skills/browser/SKILL.md`: два уровня вверх от его каталога — корень плагина,
+  исполняемый файл — `<корень плагина>/bin/chromectl`. Во всех командах ниже
+  подставляй этот абсолютный путь в кавычках вместо `chromectl`. Не ищи плагин
+  относительно рабочего каталога проекта и не полагайся на `CLAUDE_PLUGIN_ROOT`.
+- Первый вызов обёртки собирает бинарь из исходников — нужен Go 1.26+ и запись в
+  каталог плагина. В репозитории chromectl — `make build` и `./build/chromectl`.
+- **Chrome не запускается в песочнице агента** (macOS Seatbelt). Команды, которые
+  трогают браузер, и первую сборку выполняй вне песочницы: в Claude Code — Bash с
+  `dangerouslyDisableSandbox: true`, в Codex — `exec_command` с
+  `sandbox_permissions: "require_escalated"` и кратким `justification`. Если политика
+  окружения запрещает повышение прав, сообщи об ограничении. `version` и `--help`
+  после сборки можно выполнять в песочнице.
 - Порт по умолчанию 9222 (`--port`). Нужен отдельный браузер — другой `--port`: у
   каждого порта свой state и свой профиль.
 
@@ -30,7 +37,8 @@ description: Управление Chrome через CLI chromectl — запус
    скриншота**: он дешевле и даёт uid для действий.
 4. Действия по uid: `click`, `fill`, `fill-form`, `press`… Добавь `--snapshot`, чтобы
    сразу получить обновлённое дерево.
-5. Проверка: `eval`, `wait-for`, `snapshot`; вёрстка — `screenshot -o x.png` и Read.
+5. Проверка: `eval`, `wait-for`, `snapshot`; вёрстка — `screenshot -o x.png` и просмотр
+   файла инструментом изображений (Read в Claude Code, `view_image` в Codex).
 6. `chromectl browser stop`, когда браузер больше не нужен.
 
 uid живёт, пока жив документ: после перезагрузки или перехода на другую страницу
@@ -109,9 +117,9 @@ chromectl eval "() => [...document.querySelectorAll('h2')].map(h => h.textConten
 
 ## Смежные скиллы
 
-- `/chromectl:browser-a11y` — аудит доступности: Lighthouse, семантика, фокус, контраст.
-- `/chromectl:browser-lcp` — разбор LCP: трейс, LCP-элемент, водопад, оптимизация.
-- `/chromectl:browser-troubleshooting` — когда chromectl не стартует, не подключается или
+- [browser-a11y](../browser-a11y/SKILL.md) — аудит доступности: Lighthouse, семантика, фокус, контраст.
+- [browser-lcp](../browser-lcp/SKILL.md) — разбор LCP: трейс, LCP-элемент, водопад, оптимизация.
+- [browser-troubleshooting](../browser-troubleshooting/SKILL.md) — когда chromectl не стартует, не подключается или
   зависает.
 
 ## Ошибки

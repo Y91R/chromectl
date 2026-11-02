@@ -2,7 +2,7 @@
 
 **English** · [Русский](README.ru.md)
 
-A CLI and a Claude Code plugin for controlling Chrome over the Chrome DevTools Protocol
+A CLI and a plugin for Claude Code and Codex for controlling Chrome over the Chrome DevTools Protocol
 (CDP): accessibility snapshots with stable uids, clicks and forms, screenshots, device
 emulation, console and network inspection, performance traces, Lighthouse audits and
 heap snapshots.
@@ -16,7 +16,8 @@ trades away: [ADR-0009](docs/adr/0009-cli-bez-demona.md) (in Russian).
 
 - Chrome or Chromium (a non-standard location is set via `CHROME_PATH`)
 - Go 1.26+ — the plugin builds the binary from source on first use
-- Claude Code 2.1.265+ for the plugin (its `bin/` is added to `PATH`)
+- Claude Code 2.1.265+ (its plugin `bin/` is added to `PATH`), or Codex CLI with
+  `codex plugin` support / Codex desktop with local plugins
 - Node.js — only for `chromectl audit lighthouse`
 
 ## Install as a Claude Code plugin
@@ -26,7 +27,23 @@ trades away: [ADR-0009](docs/adr/0009-cli-bez-demona.md) (in Russian).
 /plugin install chromectl@chromectl
 ```
 
-Skills provided by the plugin:
+## Install as a Codex plugin
+
+```bash
+codex plugin marketplace add Y91R/chromectl
+codex plugin add chromectl@chromectl
+```
+
+To test this checkout, replace the first command with
+`codex plugin marketplace add /absolute/path/to/chromectl`.
+Start a new Codex session and ask it to use the chromectl browser skill.
+In Codex desktop, the repository marketplace is also available in the plugin directory.
+Packaging follows the [Codex plugin format](https://developers.openai.com/plugins/build/plugins).
+
+## Skills
+
+Both agents use the same skills. The invocation names below are for Claude Code;
+in Codex, select the matching skill from chromectl using the `$` skill picker.
 
 | Skill | Use it to |
 |---|---|
@@ -35,13 +52,18 @@ Skills provided by the plugin:
 | `/chromectl:browser-lcp` | debug and optimize Largest Contentful Paint: trace, LCP element, network waterfall |
 | `/chromectl:browser-troubleshooting` | diagnose a CLI that does not start Chrome, cannot connect or hangs |
 
-The skills themselves are written in Russian; Claude follows them regardless of the
+The skills themselves are written in Russian; both agents follow them regardless of the
 language you use.
 
-**Sandbox.** Chrome does not start inside the Claude Code Bash sandbox (macOS Seatbelt),
+**Sandbox.** Chrome does not start inside the agent sandbox on macOS (Seatbelt),
 and the first `chromectl` call writes the built binary into the plugin directory. The
-skills tell Claude to run such commands outside the sandbox; you will be asked for
-permission. Sandbox rules are managed with `/sandbox`.
+skills describe how to request execution outside the sandbox in each agent:
+`dangerouslyDisableSandbox` in Claude Code and `sandbox_permissions: "require_escalated"`
+in Codex. Execution requires the environment's permission. Claude Code sandbox rules
+are managed with `/sandbox`.
+
+**Codex executable path.** The skills resolve `bin/chromectl` from their installed
+location and invoke it by absolute path; adding it to your global `PATH` is optional.
 
 ## Install without the plugin
 
@@ -91,6 +113,8 @@ make build        # build/chromectl
 make test         # unit tests, no browser
 make verify       # lint + guard + unit + e2e (needs Chrome; run outside the sandbox)
 claude --plugin-dir .   # try the plugin from this checkout
+codex plugin marketplace add /absolute/path/to/chromectl
+codex plugin add chromectl@chromectl  # then start a new session
 ```
 
 Internal documentation is in Russian: [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md),

@@ -2,7 +2,7 @@
 
 [English](README.md) · **Русский**
 
-CLI и плагин Claude Code для управления Chrome по Chrome DevTools Protocol (CDP): снапшот
+CLI и плагин для Claude Code и Codex для управления Chrome по Chrome DevTools Protocol (CDP): снапшот
 дерева доступности с uid, клики и формы, скриншоты, эмуляция устройств, консоль и сеть,
 трейс производительности, Lighthouse и снимок кучи.
 
@@ -15,7 +15,8 @@ CLI и плагин Claude Code для управления Chrome по Chrome D
 
 - Chrome или Chromium (нестандартный путь — `CHROME_PATH`)
 - Go 1.26+ — плагин собирает бинарь из исходников при первом вызове
-- Claude Code 2.1.265+ для плагина (его `bin/` попадает в `PATH`)
+- Claude Code 2.1.265+ (его `bin/` попадает в `PATH`) либо Codex CLI с поддержкой
+  `codex plugin` / Codex desktop с локальными плагинами
 - Node.js — только для `chromectl audit lighthouse`
 
 ## Установка плагина Claude Code
@@ -25,7 +26,23 @@ CLI и плагин Claude Code для управления Chrome по Chrome D
 /plugin install chromectl@chromectl
 ```
 
-Скиллы плагина:
+## Установка плагина Codex
+
+```bash
+codex plugin marketplace add Y91R/chromectl
+codex plugin add chromectl@chromectl
+```
+
+Для проверки текущего checkout замените первую команду на
+`codex plugin marketplace add /абсолютный/путь/к/chromectl`.
+Начните новую сессию Codex и попросите использовать скилл browser плагина chromectl.
+В Codex desktop каталог репозитория также доступен в разделе плагинов.
+Упаковка соответствует [формату плагинов Codex](https://developers.openai.com/plugins/build/plugins).
+
+## Скиллы
+
+Оба агента используют одни скиллы. Ниже указаны имена вызова в Claude Code;
+в Codex выберите соответствующий скилл плагина chromectl через список `$`.
 
 | Скилл | Для чего |
 |---|---|
@@ -34,10 +51,14 @@ CLI и плагин Claude Code для управления Chrome по Chrome D
 | `/chromectl:browser-lcp` | отладка и оптимизация LCP: трейс, LCP-элемент, водопад сети |
 | `/chromectl:browser-troubleshooting` | диагностика, когда CLI не запускает Chrome, не подключается или зависает |
 
-**Песочница.** Chrome не запускается в песочнице Bash Claude Code (macOS Seatbelt), а
-первый вызов `chromectl` пишет собранный бинарь в каталог плагина. Скиллы велят Claude
-выполнять такие команды вне песочницы — Claude Code спросит разрешение. Правила
-песочницы — `/sandbox`.
+**Песочница.** Chrome не запускается в песочнице агента на macOS (Seatbelt), а
+первый вызов `chromectl` пишет собранный бинарь в каталог плагина. Скиллы описывают
+запрос запуска вне песочницы для каждого агента: `dangerouslyDisableSandbox` в
+Claude Code и `sandbox_permissions: "require_escalated"` в Codex. Запуск требует
+разрешения окружения. Правила песочницы Claude Code — `/sandbox`.
+
+**Путь к CLI в Codex.** Скиллы находят `bin/chromectl` относительно своего места
+установки и вызывают по абсолютному пути; добавлять его в глобальный `PATH` необязательно.
 
 ## Установка без плагина
 
@@ -86,6 +107,8 @@ make build        # build/chromectl
 make test         # unit-тесты без браузера
 make verify       # lint + guard + unit + e2e (нужен Chrome, вне песочницы)
 claude --plugin-dir .   # попробовать плагин из этого репозитория
+codex plugin marketplace add /абсолютный/путь/к/chromectl
+codex plugin add chromectl@chromectl  # затем начать новую сессию
 ```
 
 Порядок работы и гардрейлы — [CLAUDE.md](CLAUDE.md), карта для агента —

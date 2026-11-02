@@ -19,13 +19,25 @@
 | Проверить доступность страницы | Lighthouse, снапшот, сниппеты `eval` | `/chromectl:browser-a11y` |
 | Разобрать медленную загрузку, LCP | `perf trace`, `perf insight`, `network --capture` | `/chromectl:browser-lcp` |
 | chromectl не стартует, не подключается, зависает | таблица ошибок, state и лог Chrome | `/chromectl:browser-troubleshooting` |
-| Плагин: манифесты, обёртка бинаря, скиллы | `.claude-plugin/`, `bin/chromectl`, `skills/` (локально — `claude --plugin-dir .`) | — |
+| Плагин: манифесты, обёртка бинаря, скиллы | `.claude-plugin/`, `.codex-plugin/`, `.agents/plugins/`, `bin/chromectl`, `skills/` (установка обоих агентов — в README) | — |
 | Почему CLI без демона, что теряется | `docs/adr/0009-cli-bez-demona.md` | — |
 | Написать тест на поведение, починить баг | `make red` (red → green → диверсия) | `/tdd` |
 | Как писать Go-код (ошибки, контекст, вкладки, секреты) | `CLAUDE.md` → «Принципы Go-кода» | — |
 | Зафиксировать решение | `docs/adr/` (+ маркеры `// ADR:` в коде) | `/new-adr` |
 | Что удалить позже | `docs/adr/DEPRECATIONS.md` | — |
 | Команды | `make help` | — |
+
+## Codex
+
+Codex читает этот файл; подробные правила Go и тестов — в [CLAUDE.md](CLAUDE.md).
+Плагин устанавливается через `codex plugin marketplace add <абсолютный путь репозитория>`
+и `codex plugin add chromectl@chromectl`, затем нужна новая сессия.
+Скиллы общие для обоих агентов: [browser](skills/browser/SKILL.md),
+[browser-a11y](skills/browser-a11y/SKILL.md), [browser-lcp](skills/browser-lcp/SKILL.md),
+[browser-troubleshooting](skills/browser-troubleshooting/SKILL.md).
+В Codex обёртку вызывают по абсолютному пути относительно загруженного скилла;
+Chrome, `make test-e2e` и `make verify` — через `exec_command` с
+`sandbox_permissions: "require_escalated"` и `justification`.
 
 ## Гардрейлы (знай заранее)
 

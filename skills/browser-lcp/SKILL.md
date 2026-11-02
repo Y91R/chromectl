@@ -5,7 +5,8 @@ description: Отладка и оптимизация Largest Contentful Paint (
 
 # LCP через chromectl
 
-Команды — из скилла `/chromectl:browser` (Chrome только вне песочницы Bash). Сниппеты — в
+Сначала прочитай [основной скилл browser](../browser/SKILL.md): там команды, поиск
+бинаря в Codex и правила запуска вне песочницы для обоих агентов. Сниппеты — в
 [references/lcp-snippets.md](references/lcp-snippets.md), стратегии —
 [references/optimization-strategies.md](references/optimization-strategies.md).
 

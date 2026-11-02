@@ -1,14 +1,14 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Подробные инструкции для Claude Code и Codex при работе с репозиторием.
 
 > Краткая карта для агента (навигация, definition of done, гардрейлы) — в [AGENTS.md](AGENTS.md).
 
 ## Назначение проекта
 
-`chromectl` — Go-CLI и плагин Claude Code со скиллами для управления Chrome по CDP.
+`chromectl` — Go-CLI и плагин Claude Code и Codex со скиллами для управления Chrome по CDP.
 
-- **Пользователи:** AI-агенты (Claude Code) через скиллы проекта и разработчики из
+- **Пользователи:** AI-агенты (Claude Code, Codex) через скиллы проекта и разработчики из
   терминала.
 - **Внешние системы:** Chrome/Chromium (debug-порт, CDP); Node.js — только для
   `audit lighthouse`.
@@ -35,9 +35,12 @@ ADR: `docs/adr/0009-cli-bez-demona.md`.
 `pages`, `navigate`, `screenshot`, `snapshot`, `click`, `hover`, `drag`, `fill`,
 `fill-form`, `type`, `press`, `upload`, `eval`, `wait-for`, `dialog`, `emulate`,
 `resize`, `console`, `network` (детали — через `--capture`), `perf`, `heap`,
-`audit lighthouse` (нужен Node.js). Плагин `chromectl` (`.claude-plugin/`), скиллы:
+`audit lighthouse` (нужен Node.js). Плагин `chromectl` (`.claude-plugin/`, `.codex-plugin/`), скиллы:
 `/chromectl:browser`, `/chromectl:browser-a11y`, `/chromectl:browser-lcp`,
-`/chromectl:browser-troubleshooting`; локально — `claude --plugin-dir .`. Пакеты без пометки уже есть в коде, с
+`/chromectl:browser-troubleshooting`; имена выше — для Claude Code, в Codex скиллы
+выбираются через `$`. Локально — `claude --plugin-dir .` либо
+`codex plugin marketplace add <абсолютный путь репозитория>` и
+`codex plugin add chromectl@chromectl`, затем новая сессия. Пакеты без пометки уже есть в коде, с
 пометкой — появятся в указанном этапе (зонтичный план
 `docs/plans/dapper-tinkering-raccoon.md`).
 
@@ -62,10 +65,16 @@ internal/e2e/              e2e с реальным Chrome и httptest-фикст
 skills/browser*/           скиллы плагина: browser, browser-a11y, browser-lcp, browser-troubleshooting
 bin/chromectl              обёртка плагина: собирает build/chromectl из исходников при первом вызове
 .claude-plugin/            манифесты плагина и маркетплейса
+.codex-plugin/             манифест Codex с общим каталогом skills/
+.agents/plugins/           каталог установки плагина Codex из корня репозитория
 ```
 
 **Chrome не запускается в песочнице агента** (Seatbelt): `make test-e2e`, `make verify`
 и команды `chromectl`, которые трогают браузер, выполняются вне песочницы.
+В Codex — `exec_command` с `sandbox_permissions: "require_escalated"` и
+`justification`, в Claude Code — Bash с `dangerouslyDisableSandbox: true`.
+Codex вызывает обёртку по абсолютному пути, найденному относительно загруженного
+`skills/browser/SKILL.md`; автоматическое добавление `bin/` в PATH не предполагается.
 
 ## Порядок работы
 
